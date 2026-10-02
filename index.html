@@ -217,7 +217,7 @@ tr:hover{background:#f9f9f9}
     <circle cx="25" cy="25" r="20" fill="none" stroke="#F4C430" stroke-width="4" stroke-dasharray="90 30" stroke-linecap="round"/>
   </svg>
   <div class="boot-title">Frota para Manutenção</div>
-  <div class="boot-msg" id="bootMsg">Conectando ao banco de dados…</div>
+  <div class="boot-msg" id="bootMsg">Carregando…</div>
 </div>
 
 <div id="loginScreen" class="login-screen" style="display:none">
@@ -263,7 +263,7 @@ tr:hover{background:#f9f9f9}
 <h1 id="pageTitle">Frota para Manutenção</h1>
 <div class="navbar-search" id="searchWrap"><input type="text" placeholder="Pesquisar veículos..." id="searchGlobal"></div>
 <div class="navbar-icons">
-<span class="sync-badge" id="syncBadge" title="Status da sincronização"><i class="fas fa-circle"></i> <span id="syncTxt">Conectando…</span></span>
+<span class="sync-badge" id="syncBadge" title="Status da sincronização"><i class="fas fa-circle"></i> <span id="syncTxt">Aguardando login</span></span>
 <i class="fas fa-bell" title="Notificações" onclick="toggleNotif()"><span class="badge-n" id="badgeNotif">0</span></i>
 </div>
 </nav>
@@ -911,9 +911,10 @@ function mig(d){
 }
 
 const SYNC={
-  ready:false,online:false,saving:false,remoteReady:false,cache:null,pendingTimer:null,unsubscribe:null,
+  ready:false,online:false,saving:false,remoteReady:false,cache:null,pendingTimer:null,unsubscribe:null,iniciando:false,
   db:null,doc:null,getDoc:null,setDoc:null,onSnapshot:null,serverTimestamp:null,
   async init(){
+    if(this.iniciando)return;
     const t0=Date.now();
     while(!window.__frotaFirebase&&Date.now()-t0<8000){await new Promise(r=>setTimeout(r,100));}
     if(!window.__frotaFirebase){this.goOffline('Firebase indisponível');return;}
@@ -921,6 +922,12 @@ const SYNC={
     this.db=F.db;this.doc=F.doc;this.getDoc=F.getDoc;this.setDoc=F.setDoc;
     this.onSnapshot=F.onSnapshot;this.serverTimestamp=F.serverTimestamp;
     this.ready=true;
+    /* Só sincroniza DEPOIS do login */
+    if(!F.auth||!F.auth.currentUser){
+      this.atualizaBadge('offline','Aguardando login…');
+      return;
+    }
+    this.iniciando=true;
     this.atualizaBadge('saving','Conectando…');
     try{const ls=localStorage.getItem(DBK);if(ls)this.cache=mig(JSON.parse(ls));}catch(e){}
     if(!this.cache)this.cache=JSON.parse(JSON.stringify(EMPTY));
@@ -935,7 +942,7 @@ const SYNC={
         else{this.cache=remoto;}
       } else {await this.pushRemoto();}
       this.remoteReady=true;
-    }catch(e){console.warn('[SYNC] getDoc falhou:',e);this.goOffline('Erro ao ler dados');return;}
+    }catch(e){console.warn('[SYNC] getDoc falhou:',e);this.goOffline('Erro ao ler dados');this.iniciando=false;return;}
     try{
       this.unsubscribe=this.onSnapshot(docRef,snap=>{
         if(!snap.exists())return;
@@ -984,10 +991,6 @@ const SYNC={
     ov.style.opacity='0';
     setTimeout(()=>{
       ov.style.display='none';
-      const ls=document.getElementById('loginScreen');
-      const s=carregarSessao();
-      if(s&&s.perfil){}
-      else if(ls){ls.style.display='flex';}
     },300);
   }
 };
@@ -1039,12 +1042,11 @@ function closeSidebar(){document.getElementById('sidebar').classList.remove('on'
 async function geocod(end){if(!end||!end.trim())return null;let q=end.trim();if(!/\bbrasil\b/i.test(q))q+=', Brasil';try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q='+encodeURIComponent(q),{headers:{'Accept':'application/json'}});if(!r.ok)throw new Error('HTTP '+r.status);const a=await r.json();if(!a.length)return null;return{lat:parseFloat(a[0].lat),lng:parseFloat(a[0].lon),fmt:a[0].display_name};}catch(e){return null;}}
 
 /* ============ AUTENTICAÇÃO (Firebase Auth) ============ */
-const SESS_KEY='frotapm_sessao_v2';
 let PERFIL=null,MOTORISTA_LOGADO=null;
 let AUTH_USER=null;
 let AUTH_PERFIL_DADOS=null;
 
-/* Stubs para compatibilidade (funções antigas) */
+/* Stubs para compatibilidade */
 function carregarSessao(){return null;}
 function salvarSessao(){}
 function limparSessao(){}
@@ -1112,6 +1114,7 @@ async function aplicarSessaoAuth(user){
     MOTORISTA_LOGADO=(dados.perfil==='motorista')?(dados.motoristaId||null):null;
     if(PERFIL==='motorista'&&!MOTORISTA_LOGADO){toast('Conta de motorista sem vínculo. Fale com o administrador.','error');await window.__frotaFirebase.signOut(window.__frotaFirebase.auth);return;}
     document.getElementById('loginScreen').style.display='none';
+    if(!SYNC.online){SYNC.iniciando=false;SYNC.init();}
     document.getElementById('app').style.display='flex';
     atualizarMenuLateral();atualizarPerfilSidebar();renderizarMinhaArea();atualizarBadgeNotif();setTimeout(atualizarBadgeNotif,500);
     go(PERFIL==='motorista'?'minhaArea':'dashboard');
@@ -1124,6 +1127,8 @@ async function aplicarSessaoAuth(user){
 async function trocarPerfil(){
   confirmar('Sair da conta?',async ()=>{
     try{await window.__frotaFirebase.signOut(window.__frotaFirebase.auth);}catch(e){}
+    if(SYNC.unsubscribe){try{SYNC.unsubscribe();}catch(e){}}
+    SYNC.online=false;SYNC.iniciando=false;
     PERFIL=null;MOTORISTA_LOGADO=null;AUTH_USER=null;AUTH_PERFIL_DADOS=null;
     document.getElementById('app').style.display='none';
     renderLogin();
@@ -2153,7 +2158,7 @@ function go(p){
 
 document.addEventListener('DOMContentLoaded',()=>{
   try{const ls=localStorage.getItem(DBK);SYNC.cache=ls?mig(JSON.parse(ls)):JSON.parse(JSON.stringify(EMPTY));}catch(e){SYNC.cache=JSON.parse(JSON.stringify(EMPTY));}
-  SYNC.init();
+  /* SYNC.init NÃO é mais chamado aqui — só depois do login */
   ['vFiltro','vSt','vUn'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',renderVit);});
   ['mFiltro','mSt'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',renderMot);});
   ['agFiltro','agSt'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',renderAg);});
@@ -2195,26 +2200,29 @@ document.addEventListener('DOMContentLoaded',()=>{
     atualizaPrev();atualizarBadgeNotif();
   });
   /* Firebase Auth listener */
-  if(window.__frotaFirebase && window.__frotaFirebase.onAuthStateChanged){
+  const configurarAuthListener=()=>{
+    if(!window.__frotaFirebase||!window.__frotaFirebase.onAuthStateChanged)return false;
     window.__frotaFirebase.onAuthStateChanged(window.__frotaFirebase.auth,(user)=>{
       if(user){aplicarSessaoAuth(user);}
       else{
         AUTH_USER=null;AUTH_PERFIL_DADOS=null;PERFIL=null;MOTORISTA_LOGADO=null;
+        if(SYNC.unsubscribe){try{SYNC.unsubscribe();}catch(e){}}
+        SYNC.online=false;SYNC.iniciando=false;
         document.getElementById('app').style.display='none';
         renderLogin();
       }
     });
-  } else {
-    window.addEventListener('frota:firebase-ready',()=>{
-      window.__frotaFirebase.onAuthStateChanged(window.__frotaFirebase.auth,(user)=>{
-        if(user){aplicarSessaoAuth(user);}
-        else{
-          AUTH_USER=null;AUTH_PERFIL_DADOS=null;PERFIL=null;MOTORISTA_LOGADO=null;
-          document.getElementById('app').style.display='none';
-          renderLogin();
-        }
-      });
-    },{once:true});
+    return true;
+  };
+  if(!configurarAuthListener()){
+    window.addEventListener('frota:firebase-ready',configurarAuthListener,{once:true});
+    /* Fallback: se demorar mais que 3s, mostra login */
+    setTimeout(()=>{
+      if(!AUTH_USER){
+        document.getElementById('bootOverlay').style.display='none';
+        renderLogin();
+      }
+    },3000);
   }
 });
 </script>
