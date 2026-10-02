@@ -857,7 +857,6 @@ function mig(d){
 const SYNC={
   ready:false,online:false,saving:false,remoteReady:false,cache:null,pendingTimer:null,unsubscribe:null,
   db:null,doc:null,getDoc:null,setDoc:null,onSnapshot:null,serverTimestamp:null,
-
   async init(){
     const t0=Date.now();
     while(!window.__frotaFirebase&&Date.now()-t0<8000){await new Promise(r=>setTimeout(r,100));}
@@ -867,12 +866,9 @@ const SYNC={
     this.onSnapshot=F.onSnapshot;this.serverTimestamp=F.serverTimestamp;
     this.ready=true;
     this.atualizaBadge('saving','Conectando…');
-
     try{const ls=localStorage.getItem(DBK);if(ls)this.cache=mig(JSON.parse(ls));}catch(e){}
     if(!this.cache)this.cache=JSON.parse(JSON.stringify(EMPTY));
-
     const docRef=this.doc(this.db,'frota','dados');
-
     try{
       const snap=await this.getDoc(docRef);
       if(snap.exists()){
@@ -881,15 +877,9 @@ const SYNC={
         const localTemDados=(this.cache.viaturas.length>0||this.cache.motoristas.length>0||this.cache.ordensServico.length>0);
         if(remotoVazio&&localTemDados){await this.pushRemoto();}
         else{this.cache=remoto;}
-      } else {
-        await this.pushRemoto();
-      }
+      } else {await this.pushRemoto();}
       this.remoteReady=true;
-    }catch(e){
-      console.warn('[SYNC] getDoc falhou:',e);
-      this.goOffline('Erro ao ler dados');return;
-    }
-
+    }catch(e){console.warn('[SYNC] getDoc falhou:',e);this.goOffline('Erro ao ler dados');return;}
     try{
       this.unsubscribe=this.onSnapshot(docRef,snap=>{
         if(!snap.exists())return;
@@ -898,19 +888,12 @@ const SYNC={
         this.cache=data;
         try{localStorage.setItem(DBK,JSON.stringify(this.cache));}catch(e){}
         window.dispatchEvent(new Event('frota:update'));
-      },err=>{
-        console.warn('[SYNC] onSnapshot erro:',err);
-        this.goOffline('Sem conexão');
-      });
+      },err=>{console.warn('[SYNC] onSnapshot erro:',err);this.goOffline('Sem conexão');});
       this.online=true;
       this.atualizaBadge('ok','Sincronizado');
       setTimeout(()=>this.escondeBoot(),150);
-    }catch(e){
-      console.warn('[SYNC] onSnapshot setup falhou:',e);
-      this.goOffline('Listener falhou');
-    }
+    }catch(e){console.warn('[SYNC] onSnapshot setup falhou:',e);this.goOffline('Listener falhou');}
   },
-
   async pushRemoto(){
     if(!this.ready)return;
     this.saving=true;this.atualizaBadge('saving','Salvando…');
@@ -921,26 +904,15 @@ const SYNC={
       await this.setDoc(docRef,payload);
       this.saving=false;
       this.atualizaBadge('ok','Sincronizado');
-    }catch(e){
-      console.warn('[SYNC] escrita falhou:',e);
-      this.saving=false;
-      this.goOffline('Erro ao salvar');
-    }
+    }catch(e){console.warn('[SYNC] escrita falhou:',e);this.saving=false;this.goOffline('Erro ao salvar');}
   },
-
   agendarPush(){
     if(!this.ready||!this.online)return;
     if(this.pendingTimer)clearTimeout(this.pendingTimer);
     this.atualizaBadge('saving','Salvando…');
     this.pendingTimer=setTimeout(()=>{this.pendingTimer=null;this.pushRemoto();},400);
   },
-
-  goOffline(msg){
-    this.online=false;
-    this.atualizaBadge('offline',msg||'Offline');
-    this.escondeBoot();
-  },
-
+  goOffline(msg){this.online=false;this.atualizaBadge('offline',msg||'Offline');this.escondeBoot();},
   atualizaBadge(estado,texto){
     const b=document.getElementById('syncBadge'),t=document.getElementById('syncTxt');
     if(!b||!t)return;
@@ -949,7 +921,6 @@ const SYNC={
     if(estado==='offline')b.classList.add('offline');
     t.textContent=texto;
   },
-
   escondeBoot(){
     const ov=document.getElementById('bootOverlay');
     if(!ov)return;
@@ -959,7 +930,7 @@ const SYNC={
       ov.style.display='none';
       const ls=document.getElementById('loginScreen');
       const s=carregarSessao();
-      if(s&&s.perfil){/* aplicarSessao cuidará */}
+      if(s&&s.perfil){}
       else if(ls){ls.style.display='flex';}
     },300);
   }
@@ -1000,6 +971,7 @@ function num2(v){return(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDig
 function dt(s){if(!s)return'-';const d=new Date(s+(s.length===10?'T00:00:00':''));return isNaN(d)?'-':d.toLocaleDateString('pt-BR');}
 function hoje(){return new Date().toISOString().split('T')[0];}
 function agora(){return new Date().toISOString();}
+function agoraHM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function diasAte(s){if(!s)return null;const h=new Date();h.setHours(0,0,0,0);return Math.floor((new Date(s+'T00:00:00')-h)/86400000);}
 function statusBadge(s){const m={'Operacional':'success','Em Manutenção':'warning','Indisponível':'danger','Agendada':'info','Em andamento':'warning','Aguardando peça':'warning','Concluída':'success','Cancelada':'danger','Preventiva':'info','Corretiva':'warning','Emergencial':'danger','Ativo':'success','Inativo':'danger','Afastado':'warning','Solicitado':'info','Aprovado':'success','Em uso':'warning','Finalizado':'success','Nova':'danger','Analisada':'warning','Resolvida':'success','Arquivada':'info'};return`<span class="badge ${m[s]||'info'}">${esc(s)}</span>`;}
 function toast(msg,t='success'){const c=document.getElementById('toasts');if(!c)return;const e=document.createElement('div');e.className='toast '+t;e.textContent=msg;c.appendChild(e);setTimeout(()=>{e.style.opacity='0';e.style.transition='opacity .3s';setTimeout(()=>e.remove(),300);},3200);}
@@ -1119,7 +1091,6 @@ function perfilDestino(n){if(!n||!PERFIL)return false;if(PERFIL==='motorista')re
 function notificar(destinoPerfil,destinoId,titulo,texto,tipo){S.savN({destinoPerfil,destinoId:destinoId||null,titulo,texto,tipo:tipo||'info',lida:false,ts:agora()});atualizarBadgeNotif();}
 function toggleNotif(){const m=document.getElementById('mNotif');if(m.classList.contains('on')){closeM('mNotif');return;}const lista=S.nots().filter(perfilDestino).sort((a,b)=>new Date(b.ts)-new Date(a.ts));const c=document.getElementById('notifList');if(!lista.length){c.innerHTML='<div class="empty"><i class="fas fa-bell-slash"></i>Nenhuma notificação</div>';}else{c.innerHTML=lista.slice(0,30).map(n=>'<div class="alert '+(n.tipo||'info')+'" style="'+(n.lida?'opacity:.6':'')+'"><strong>'+esc(n.titulo)+'</strong><p>'+esc(n.texto)+'</p><p style="margin-top:6px;color:#999;font-size:11px">'+new Date(n.ts).toLocaleString('pt-BR')+'</p></div>').join('');}setTimeout(()=>{const arr=S.nots().map(n=>perfilDestino(n)?{...n,lida:true}:n);const d=S.get();d.notificacoes=arr;S.write(d);atualizarBadgeNotif();},800);openM('mNotif');}
 
-/* ============ MINHA ÁREA ============ */
 function renderizarMinhaArea(){const el=document.getElementById('minhaArea');if(PERFIL==='motorista')renderAreaMotorista(el);else if(PERFIL==='manutencao')renderAreaManutencao(el);else renderAreaAdmin(el);}
 function renderAreaAdmin(el){const db=S.get();const utsAtivas=db.utilizacoes.filter(u=>!u.fim);el.innerHTML=`<h1 style="font-size:24px;margin-bottom:16px">Minha Área — Administrador</h1><div class="card"><h3>Bem-vindo</h3><p style="margin-top:8px;color:#666">Como administrador você tem acesso total ao sistema.</p></div>${utsAtivas.length?`<div class="card"><h3 style="margin-bottom:12px">🚗 Veículos em uso agora</h3>${utsAtivas.map(u=>'<div class="mot-ag" style="border-left-color:var(--laranja)"><strong>'+esc(u.viaturaNumero)+'</strong> — '+esc(u.motoristaNome||'motorista')+'</div>').join('')}</div>`:''}`;}
 function renderAreaManutencao(el){const db=S.get();const atrasadas=viatsAtrasadas().length;const proximas=viatsProximas().length;const osPendentes=db.ordensServico.filter(o=>['Agendada','Em andamento'].includes(o.status)).length;const ocorrencias=db.ocorrencias.filter(o=>o.status==='Nova'||o.status==='Analisada').length;const emManut=db.viaturas.filter(v=>v.status==='Em Manutenção').length;const utsAtivas=db.utilizacoes.filter(u=>!u.fim);el.innerHTML=`<h1 style="font-size:24px;margin-bottom:16px">Minha Área — Gestor de Manutenção</h1><div class="stats"><div class="stat err"><div class="stat-val">${atrasadas}</div><div class="stat-lb">🔴 Atrasadas</div></div><div class="stat warn"><div class="stat-val">${proximas}</div><div class="stat-lb">🟡 Próximas</div></div><div class="stat"><div class="stat-val">${osPendentes}</div><div class="stat-lb">📋 OS Pendentes</div></div><div class="stat err"><div class="stat-val">${ocorrencias}</div><div class="stat-lb">⚠️ Ocorrências Abertas</div></div></div><div class="card"><h3 style="margin-bottom:12px">Ações rápidas</h3><div class="btns"><button onclick="go('gestaoManutencao')"><i class="fas fa-wrench"></i> Gestão de Manutenção</button><button class="sec" onclick="go('ocorrencias')"><i class="fas fa-exclamation-triangle"></i> Ocorrências (${ocorrencias})</button><button class="sec" onclick="go('ordens')"><i class="fas fa-list"></i> Ordens de Serviço</button><button class="sec" onclick="go('preve')"><i class="fas fa-shield-alt"></i> FrotaPM PREVÊ</button><button class="sec" onclick="go('viaturas')"><i class="fas fa-car"></i> Veículos</button><button class="sec" onclick="go('historico')"><i class="fas fa-history"></i> Histórico</button></div></div>${utsAtivas.length?`<div class="card"><h3 style="margin-bottom:12px">🚗 Veículos em uso agora</h3>${utsAtivas.map(u=>{const ini=new Date(u.inicio);const hh=ini.toLocaleTimeString('pt-BR').slice(0,5);return '<div class="mot-ag" style="border-left-color:var(--verde)"><strong>'+esc(u.viaturaNumero)+'</strong> — '+esc(u.motoristaNome||'motorista')+' <span class="badge success" style="margin-left:8px">Em uso desde '+hh+'</span></div>';}).join('')}</div>`:''}<div class="card"><h3 style="margin-bottom:12px">Veículos em manutenção</h3>${emManut?db.viaturas.filter(v=>v.status==='Em Manutenção').map(v=>'<div class="mot-ag" style="border-left-color:var(--laranja)"><strong>'+esc(v.numero)+'</strong> — '+esc(v.modelo)+' ('+esc(v.placa)+')</div>').join(''):'<div class="empty" style="padding:16px"><i class="fas fa-check-circle"></i>Nenhum veículo em manutenção.</div>'}</div>`;}
@@ -1130,7 +1101,28 @@ function utilizacaoAtivaDaViatura(vid){return S.uts().find(u=>u.viaturaId===vid&
 function minhasOcorrencias(){return S.ocs().filter(o=>o.motoristaId===MOTORISTA_LOGADO).sort((a,b)=>new Date(b.data)-new Date(a.data));}
 function meusAgendamentos(){return S.ags().filter(a=>a.motoristaId===MOTORISTA_LOGADO).sort((a,b)=>new Date(b.data+'T'+b.saida)-new Date(a.data+'T'+a.saida));}
 function meuAgendamentoAtivo(){const hojeISO=hoje();const ativos=meusAgendamentos().filter(a=>a.data===hojeISO&&['Aprovado','Em uso'].includes(a.status));return ativos[0]||null;}
-function minhaViatura(){const ut=utilizacaoAtiva();if(ut)return S.viat(ut.viaturaId);const ag=meuAgendamentoAtivo();if(ag)return S.viat(ag.viaturaId);const ultAg=meusAgendamentos()[0];if(ultAg)return S.viat(ultAg.viaturaId);return null;}
+
+/* Agendamento que permite iniciar utilização AGORA */
+function meuAgendamentoUtilizavel(){
+  if(utilizacaoAtiva())return null;
+  const hojeISO=hoje();
+  const hhmm=agoraHM();
+  return meusAgendamentos().find(a=>
+    a.data===hojeISO &&
+    a.status==='Aprovado' &&
+    a.motoristaId===MOTORISTA_LOGADO &&
+    hhmm>=a.saida &&
+    hhmm<=a.retorno
+  )||null;
+}
+
+function minhaViatura(){
+  const ut=utilizacaoAtiva();if(ut)return S.viat(ut.viaturaId);
+  const agUso=meuAgendamentoUtilizavel();if(agUso)return S.viat(agUso.viaturaId);
+  const ag=meuAgendamentoAtivo();if(ag)return S.viat(ag.viaturaId);
+  const ultAg=meusAgendamentos()[0];if(ultAg)return S.viat(ultAg.viaturaId);
+  return null;
+}
 
 function renderHorariosDisponiveis(){
   const db=S.get();
@@ -1142,7 +1134,6 @@ function renderHorariosDisponiveis(){
   for(let i=0;i<7;i++){
     const d=new Date(hojeD);d.setDate(d.getDate()+i);
     const iso=d.toISOString().split('T')[0];
-    /* BLOQUEIO: qualquer agendamento não cancelado bloqueia o slot. */
     const agsDia=db.agendamentos.filter(a=>a.data===iso&&a.status!=='Cancelado');
     const slots=horasPadrao.map(h=>{
       const hFim=String(parseInt(h)+1).padStart(2,'0')+':00';
@@ -1183,12 +1174,36 @@ function renderAreaMotorista(el){
   const ocor=minhasOcorrencias().filter(o=>o.status==='Nova'||o.status==='Analisada');
   const ags=meusAgendamentos().filter(a=>new Date(a.data)>=new Date(hoje()));
   const liberado=v?(v.liberadoParaUso!==false):false;
-  const btnUsoHtml=v?(!ut
-    ? (liberado
-        ? '<button class="big ok" style="margin-top:14px" onclick="iniciarUtilizacao()"><i class="fas fa-play"></i> Estou utilizando este veículo</button>'
-        : '<button class="big sec" style="margin-top:14px" disabled title="Aguardando liberação do administrador"><i class="fas fa-lock"></i> Aguardando liberação do administrador</button>')
-    : '<button class="big danger" style="margin-top:14px" onclick="finalizarUtilizacao()"><i class="fas fa-stop"></i> Finalizar utilização</button>'):'';
+
+  let btnUsoHtml='';
+  if(v){
+    if(ut){
+      btnUsoHtml='<button class="big danger" style="margin-top:14px" onclick="finalizarUtilizacao()"><i class="fas fa-stop"></i> Finalizar utilização</button>';
+    } else if(v.liberadoParaUso===false){
+      btnUsoHtml='<button class="big sec" style="margin-top:14px" disabled title="Aguardando liberação do administrador"><i class="fas fa-lock"></i> Aguardando liberação do administrador</button>';
+    } else {
+      const agUso=meuAgendamentoUtilizavel();
+      const hhmm=agoraHM();
+      const hojeISO=hoje();
+      const agHojeAprov=meusAgendamentos().find(a=>a.data===hojeISO&&(a.status==='Aprovado'||a.status==='Em uso'));
+      if(agUso){
+        btnUsoHtml='<button class="big ok" style="margin-top:14px" onclick="iniciarUtilizacao()"><i class="fas fa-play"></i> Estou utilizando este veículo</button>'+
+          '<div class="alert success" style="margin-top:10px;margin-bottom:0"><strong>✅ Agendamento ativo</strong><p>Agendado para hoje das <b>'+esc(agUso.saida)+'</b> às <b>'+esc(agUso.retorno)+'</b> — Destino: '+esc(agUso.destino||'-')+'.</p></div>';
+      } else if(agHojeAprov && hhmm<agHojeAprov.saida){
+        btnUsoHtml='<button class="big sec" style="margin-top:14px" disabled><i class="fas fa-clock"></i> Aguardando horário</button>'+
+          '<div class="alert info" style="margin-top:10px;margin-bottom:0"><strong>⏰ Aguardando o horário</strong><p>Você só poderá iniciar a utilização a partir das <b>'+esc(agHojeAprov.saida)+'</b>. Agendamento até <b>'+esc(agHojeAprov.retorno)+'</b>. Agora: '+hhmm+'.</p></div>';
+      } else if(agHojeAprov && hhmm>agHojeAprov.retorno){
+        btnUsoHtml='<button class="big sec" style="margin-top:14px" disabled><i class="fas fa-clock"></i> Horário encerrado</button>'+
+          '<div class="alert warning" style="margin-top:10px;margin-bottom:0"><strong>⏰ Horário encerrado</strong><p>Seu agendamento era hoje das '+esc(agHojeAprov.saida)+' às '+esc(agHojeAprov.retorno)+'. Para usar novamente, faça um <b>novo agendamento</b>.</p></div>';
+      } else {
+        btnUsoHtml='<button class="big sec" style="margin-top:14px" disabled><i class="fas fa-calendar-plus"></i> Faça um agendamento primeiro</button>'+
+          '<div class="alert warning" style="margin-top:10px;margin-bottom:0"><strong>📅 Sem agendamento ativo</strong><p>Para iniciar a utilização é preciso ter um <b>agendamento aprovado</b> cobrindo o horário atual. Use o botão <b>Solicitar Agendamento</b> abaixo.</p></div>';
+      }
+    }
+  }
+
   const liberacaoHtml=v?('<div class="alert '+(liberado?'success':'warning')+'" style="margin-top:10px;margin-bottom:0"><strong>'+(liberado?'✅ Liberado para uso':'🔒 Uso bloqueado')+'</strong><p>'+(liberado?'O administrador liberou este veículo para utilização.':'Este veículo está aguardando liberação do administrador antes de ser utilizado.')+'</p></div>'):'';
+
   el.innerHTML=
     '<h1 style="font-size:22px;margin-bottom:14px">Olá, '+esc(m.nome.split(' ')[0])+' 👋</h1>'+
     '<div class="mot-card"><h3><i class="fas fa-user"></i> Meu Perfil</h3><div style="font-size:14px;line-height:1.8"><div><strong>'+esc(m.nome)+'</strong></div><div style="color:#666">Matrícula: '+esc(m.matricula)+' · '+esc(m.unidade)+'</div><div style="margin-top:6px">CNH categoria <strong>'+esc(m.cnhCategoria)+'</strong> — válida até <strong>'+dt(m.cnhValidade)+'</strong></div><div style="margin-top:4px"><span class="badge '+stCnhM.cor+'">'+stCnhM.label+'</span> '+statusBadge(m.status)+'</div></div></div>'+
@@ -1197,7 +1212,23 @@ function renderAreaMotorista(el){
     '<div class="mot-actions"><button onclick="modalOcorrencia()"><i class="fas fa-exclamation-triangle" style="color:var(--verm)"></i> Informar Problema</button><button onclick="modalLeituraMotorista()"><i class="fas fa-tachometer-alt" style="color:var(--azul2)"></i> Registrar KM</button><button onclick="modalAbastecimentoMotorista()"><i class="fas fa-gas-pump" style="color:var(--laranja)"></i> Abastecimento</button><button onclick="verHistoricoUtilizacoes()"><i class="fas fa-history"></i> Minhas Utilizações</button><button onclick="modalSolicitarAgendamento()" style="grid-column:1/-1;border-color:var(--verde);color:var(--verde)"><i class="fas fa-calendar-plus" style="color:var(--verde)"></i> Solicitar Agendamento</button></div>'+
     renderHorariosDisponiveis()+
     (ocor.length?('<div class="mot-card"><h3><i class="fas fa-bell"></i> Ocorrências em aberto</h3>'+ocor.map(o=>'<div class="mot-ag" style="border-left-color:'+(o.status==='Nova'?'var(--verm)':'var(--laranja)')+'"><div class="dt">'+esc(o.tipo)+' · '+esc(o.gravidade)+' · '+dt(o.data)+'</div><div>'+esc(o.descricao)+'</div><div class="ln">'+statusBadge(o.status)+'</div></div>').join('')+'</div>'):'')+
-    '<div class="mot-card"><h3><i class="fas fa-calendar-alt"></i> Meus Agendamentos</h3>'+(ags.length?ags.slice(0,5).map(a=>'<div class="mot-ag"><div class="dt">'+dt(a.data)+' · '+esc(a.saida)+' às '+esc(a.retorno)+'</div><div><strong>'+esc(a.viaturaNumero)+'</strong> — '+esc(a.destino)+'</div><div class="ln">'+esc(a.finalidade)+' · '+statusBadge(a.status)+'</div></div>').join(''):'<div class="empty" style="padding:20px"><i class="fas fa-calendar"></i>Nenhum agendamento próximo</div>')+'</div>';
+    '<div class="mot-card"><h3><i class="fas fa-calendar-alt"></i> Meus Agendamentos</h3>'+
+    (ags.length
+      ? ags.slice(0,5).map(a=>{
+          const podeCancelar=(a.status==='Solicitado'||a.status==='Aprovado');
+          return '<div class="mot-ag">'+
+            '<div class="dt">'+dt(a.data)+' · '+esc(a.saida)+' às '+esc(a.retorno)+'</div>'+
+            '<div><strong>'+esc(a.viaturaNumero)+'</strong> — '+esc(a.destino)+'</div>'+
+            '<div class="ln">'+esc(a.finalidade)+' · '+statusBadge(a.status)+'</div>'+
+            (podeCancelar
+              ? '<div class="btns" style="margin-top:8px"><button class="danger sm" onclick="cancelarMeuAgendamento('+a.id+')"><i class="fas fa-times"></i> Cancelar agendamento</button></div>'
+              : (a.status==='Em uso'
+                  ? '<div class="ln" style="color:var(--laranja);font-weight:600;margin-top:6px">⚠️ Em uso — finalize a utilização para liberar</div>'
+                  : ''))+
+          '</div>';
+        }).join('')
+      : '<div class="empty" style="padding:20px"><i class="fas fa-calendar"></i>Nenhum agendamento próximo</div>')+
+    '</div>';
 }
 
 function iniciarUtilizacao(){
@@ -1205,19 +1236,52 @@ function iniciarUtilizacao(){
   if(v.liberadoParaUso===false){toast('🔒 Este veículo ainda não foi liberado pelo administrador.','warning');return;}
   if(utilizacaoAtiva()){toast('Você já tem uma utilização em andamento','warning');return;}
   if(v.status!=='Operacional'){toast('Veículo não está operacional','error');return;}
-  const outraUtil=utilizacaoAtivaDaViatura(v.id);if(outraUtil){toast('⚠️ Este veículo já está em utilização por '+(outraUtil.motoristaNome||'outro motorista'),'error');return;}
+  const ag=meuAgendamentoUtilizavel();
+  if(!ag){toast('🚫 Você só pode iniciar durante o horário agendado. Faça um agendamento primeiro.','error');return;}
+  if(ag.viaturaId!==v.id){toast('⚠️ Você tem agendamento ativo para outro veículo.','warning');return;}
+  const outraUtil=utilizacaoAtivaDaViatura(v.id);
+  if(outraUtil){toast('⚠️ Este veículo já está em utilização por '+(outraUtil.motoristaNome||'outro motorista'),'error');return;}
   const kmIni=Number(v.quilometragem||0);
-  S.savU({motoristaId:MOTORISTA_LOGADO,motoristaNome:S.mot(MOTORISTA_LOGADO)?.nome||'',viaturaId:v.id,viaturaNumero:v.numero,viaturaPlaca:v.placa,inicio:agora(),kmInicial:kmIni,obsInicial:''});
-  const meusAg=S.ags().filter(a=>a.viaturaId===v.id&&a.motoristaId===MOTORISTA_LOGADO&&(a.status==='Aprovado'||a.status==='Solicitado')).sort((a,b)=>new Date(a.data+'T'+a.saida)-new Date(b.data+'T'+b.saida));
-  const agHoje=meusAg[0]||null;if(agHoje){S.savA({...agHoje,status:'Em uso'});}
+  S.savU({motoristaId:MOTORISTA_LOGADO,motoristaNome:S.mot(MOTORISTA_LOGADO)?.nome||'',viaturaId:v.id,viaturaNumero:v.numero,viaturaPlaca:v.placa,inicio:agora(),kmInicial:kmIni,obsInicial:'',agendamentoId:ag.id});
+  S.savA({...ag,status:'Em uso',inicioUtilizacao:agora()});
   const nomeMot=S.mot(MOTORISTA_LOGADO)?.nome||'Motorista';
   const hh=new Date().toLocaleTimeString('pt-BR').slice(0,5);
   notificar('manutencao',null,'🚗 Utilização iniciada',nomeMot+' iniciou utilização do veículo '+v.numero+' às '+hh+'.','info');
   notificar('admin',null,'🚗 Utilização iniciada',nomeMot+' iniciou utilização do veículo '+v.numero+' às '+hh+'.','info');
-  toast('Utilização iniciada às '+hh,'success');renderizarMinhaArea();go('minhaArea');
+  toast('Utilização iniciada às '+hh,'success');
+  renderizarMinhaArea();go('minhaArea');
 }
 
-function finalizarUtilizacao(){const u=utilizacaoAtiva();if(!u){toast('Nenhuma utilização em andamento','warning');return;}const v=S.viat(u.viaturaId);const kmInp=prompt('KM final do odômetro:',v?String(v.quilometragem||u.kmInicial):String(u.kmInicial));if(kmInp===null)return;const kmFin=parseInt(kmInp);if(isNaN(kmFin)||kmFin<0){toast('KM inválida','error');return;}if(kmFin<u.kmInicial){toast('KM final não pode ser menor que a inicial ('+num(u.kmInicial)+' km)','error');return;}const obs=prompt('Observação (opcional):','')||'';const kmPerc=kmFin-u.kmInicial;S.savU({...u,fim:agora(),kmFinal:kmFin,obsFinal:obs,kmPercorrido:kmPerc});if(v&&kmFin>(v.quilometragem||0)){S.savV({...v,quilometragem:kmFin});criarLeituraAuto(v.id,kmFin,hoje(),'Utilização',MOTORISTA_LOGADO,S.mot(MOTORISTA_LOGADO)?.nome||'','Finalizada utilização — '+num(kmPerc)+' km percorridos');}S.ags().filter(a=>a.viaturaId===u.viaturaId&&a.motoristaId===MOTORISTA_LOGADO&&a.status==='Em uso').forEach(a=>{S.savA({...a,status:'Finalizado'});});const nomeMot=S.mot(MOTORISTA_LOGADO)?.nome||'Motorista';const hh=new Date().toLocaleTimeString('pt-BR').slice(0,5);notificar('manutencao',null,'🏁 Utilização finalizada',nomeMot+' finalizou utilização do veículo '+u.viaturaNumero+' às '+hh+'. KM percorridos: '+num(kmPerc)+'.','success');notificar('admin',null,'🏁 Utilização finalizada',nomeMot+' finalizou utilização do veículo '+u.viaturaNumero+' às '+hh+'.','info');toast('Utilização finalizada. '+num(kmPerc)+' km percorridos.','success');renderizarMinhaArea();go('minhaArea');}
+function finalizarUtilizacao(){
+  const u=utilizacaoAtiva();if(!u){toast('Nenhuma utilização em andamento','warning');return;}
+  const v=S.viat(u.viaturaId);
+  const kmInp=prompt('KM final do odômetro:',v?String(v.quilometragem||u.kmInicial):String(u.kmInicial));
+  if(kmInp===null)return;
+  const kmFin=parseInt(kmInp);
+  if(isNaN(kmFin)||kmFin<0){toast('KM inválida','error');return;}
+  if(kmFin<u.kmInicial){toast('KM final não pode ser menor que a inicial ('+num(u.kmInicial)+' km)','error');return;}
+  const obs=prompt('Observação (opcional):','')||'';
+  const kmPerc=kmFin-u.kmInicial;
+  S.savU({...u,fim:agora(),kmFinal:kmFin,obsFinal:obs,kmPercorrido:kmPerc});
+  if(v&&kmFin>(v.quilometragem||0)){
+    S.savV({...v,quilometragem:kmFin});
+    criarLeituraAuto(v.id,kmFin,hoje(),'Utilização',MOTORISTA_LOGADO,S.mot(MOTORISTA_LOGADO)?.nome||'','Finalizada utilização — '+num(kmPerc)+' km percorridos');
+  }
+  if(u.agendamentoId){
+    const ag=S.ag(u.agendamentoId);
+    if(ag)S.savA({...ag,status:'Finalizado',fimUtilizacao:agora()});
+  } else {
+    S.ags().filter(a=>a.viaturaId===u.viaturaId&&a.motoristaId===MOTORISTA_LOGADO&&a.status==='Em uso').forEach(a=>{
+      S.savA({...a,status:'Finalizado',fimUtilizacao:agora()});
+    });
+  }
+  const nomeMot=S.mot(MOTORISTA_LOGADO)?.nome||'Motorista';
+  const hh=new Date().toLocaleTimeString('pt-BR').slice(0,5);
+  notificar('manutencao',null,'🏁 Utilização finalizada',nomeMot+' finalizou utilização do veículo '+u.viaturaNumero+' às '+hh+'. KM percorridos: '+num(kmPerc)+'.','success');
+  notificar('admin',null,'🏁 Utilização finalizada',nomeMot+' finalizou utilização do veículo '+u.viaturaNumero+' às '+hh+'.','info');
+  toast('Utilização finalizada. Faça um novo agendamento para usar novamente.','success');
+  renderizarMinhaArea();go('minhaArea');
+}
 
 function verHistoricoUtilizacoes(){const arr=minhasUtilizacoes().slice(0,20);if(!arr.length){toast('Nenhuma utilização registrada','info');return;}alert('Minhas últimas utilizações:\n\n'+arr.map(u=>{const ini=new Date(u.inicio).toLocaleString('pt-BR');const fim=u.fim?new Date(u.fim).toLocaleString('pt-BR'):'(em andamento)';return u.viaturaNumero+' — '+ini+' → '+fim+(u.kmPercorrido?' · '+num(u.kmPercorrido)+' km':'');}).join('\n'));}
 function modalLeituraMotorista(){const v=minhaViatura();if(!v){toast('Nenhum veículo atribuído','warning');return;}const form=document.querySelector('#mLeitura form');form.reset();document.getElementById('leId').value='';document.getElementById('mLeituraTitle').textContent='Registrar Quilometragem';document.getElementById('leAviso').innerHTML='';const vs=S.viats();document.getElementById('leVit').innerHTML=vs.map(x=>'<option value="'+x.id+'">'+esc(x.numero)+' - '+esc(x.placa)+'</option>').join('');document.getElementById('leVit').value=v.id;document.getElementById('leVit').disabled=true;const ms=S.mots().filter(x=>x.status==='Ativo');document.getElementById('leMot').innerHTML='<option value="">— Não informado —</option>'+ms.map(x=>'<option value="'+x.id+'">'+esc(x.nome)+'</option>').join('');document.getElementById('leMot').value=MOTORISTA_LOGADO;document.getElementById('leData').value=hoje();document.getElementById('leKm').value=v.quilometragem||0;document.getElementById('leKmHint').innerHTML='KM atual cadastrado: <strong>'+num(v.quilometragem)+' km</strong>';openM('mLeitura');}
@@ -1246,7 +1310,6 @@ function salvarSolicitacaoAg(e){
   const r=document.getElementById('saRet').value;
   if(!d||!s||!r){toast('Preencha data e horários','error');return;}
   if(r<=s){toast('Retorno deve ser após a saída','error');return;}
-  /* BLOQUEIO RÍGIDO — qualquer status ativo (Solicitado, Aprovado, Em uso, Finalizado) bloqueia. Só Cancelado libera. */
   const cf=conflito({viaturaId:vv.id,data:d,saida:s,retorno:r},null);
   if(cf&&cf.length>0){
     document.getElementById('saAviso').innerHTML='<div class="alert danger"><strong>🚫 Viatura indisponível neste horário</strong><p>Já existe agendamento para '+esc(vv.numero)+':</p><ul style="margin:6px 0 0 20px;font-size:12px">'+cf.map(c=>'<li>'+esc(c.saida)+' às '+esc(c.retorno)+' — '+esc(c.destino||'-')+' ('+esc(c.motoristaNome||'motorista')+', '+esc(c.status)+')</li>').join('')+'</ul><p style="margin-top:6px">Escolha outro horário ou outro veículo.</p></div>';
@@ -1263,11 +1326,33 @@ function salvarSolicitacaoAg(e){
   renderizarMinhaArea();go('minhaArea');
 }
 
-/* ============ SOLICITAÇÕES PENDENTES (ADMIN) ============ */
+/* Cancelamento de agendamento pelo próprio motorista */
+function cancelarMeuAgendamento(id){
+  const a=S.ag(id);
+  if(!a){toast('Agendamento não encontrado','error');return;}
+  if(a.motoristaId!==MOTORISTA_LOGADO){toast('Você só pode cancelar seus próprios agendamentos.','error');return;}
+  if(a.status==='Em uso'){
+    toast('⚠️ Este agendamento está em uso. Finalize a utilização antes de cancelar.','warning');
+    return;
+  }
+  if(a.status!=='Solicitado'&&a.status!=='Aprovado'){
+    toast('Este agendamento não pode mais ser cancelado (status: '+a.status+').','warning');
+    return;
+  }
+  const motivo=prompt('Motivo do cancelamento (opcional):','')||'';
+  confirmar('Cancelar agendamento do veículo '+a.viaturaNumero+' em '+dt(a.data)+' ('+a.saida+' às '+a.retorno+')?',()=>{
+    S.savA({...a,status:'Cancelado',canceladoPor:'motorista',canceladoEm:agora(),motivoCancelamento:motivo});
+    const nomeMot=S.mot(MOTORISTA_LOGADO)?.nome||'Motorista';
+    notificar('admin',null,'❌ Agendamento cancelado pelo motorista',nomeMot+' cancelou o agendamento do veículo '+a.viaturaNumero+' em '+dt(a.data)+'.'+(motivo?'\nMotivo: '+motivo:''),'warning');
+    notificar('manutencao',null,'❌ Agendamento cancelado',nomeMot+' cancelou o agendamento do veículo '+a.viaturaNumero+'.','info');
+    toast('✅ Agendamento cancelado.','success');
+    renderizarMinhaArea();go('minhaArea');
+  });
+}
+
 function renderSolicitacoesPendentes(){
   const card=document.getElementById('cardSolicitacoesPendentes');
   if(!card)return;
-  /* só mostra para admin e gestor */
   if(PERFIL!=='admin'&&PERFIL!=='manutencao'){card.style.display='none';return;}
   const pend=S.ags().filter(a=>a.status==='Solicitado'&&a.origemSolicitacao==='motorista').sort((a,b)=>new Date(a.data+'T'+a.saida)-new Date(b.data+'T'+b.saida));
   if(!pend.length){card.style.display='none';return;}
@@ -1297,7 +1382,6 @@ function renderSolicitacoesPendentes(){
 function aprovarSolicitacaoAg(id){
   if(PERFIL!=='admin'&&PERFIL!=='manutencao'){toast('Sem permissão','error');return;}
   const a=S.ag(id);if(!a)return;
-  /* Valida conflito antes de aprovar */
   const cf=conflito({viaturaId:a.viaturaId,data:a.data,saida:a.saida,retorno:a.retorno},a.id);
   if(cf&&cf.length>0){
     if(!confirm('⚠️ Esta viatura já tem outro agendamento no mesmo horário:\n\n'+cf.map(c=>'• '+c.saida+'–'+c.retorno+' ('+c.motoristaNome+', '+c.status+')').join('\n')+'\n\nAprovar mesmo assim?'))return;
@@ -1317,7 +1401,6 @@ function rejeitarSolicitacaoAg(id){
   renderSolicitacoesPendentes();renderAg();renderDash();
 }
 
-/* ============ CÁLCULOS E HELPERS ============ */
 function criarLeituraAuto(viaturaId,km,data,origem,motId,motNome,obs){if(!km||km<=0)return null;const l={viaturaId,quilometragem:km,data:data||hoje(),origem:origem||'Automática',motoristaId:motId||null,motoristaNome:motNome||'',observacoes:obs||''};const v=S.viat(viaturaId);if(v){l.viaturaNumero=v.numero||'';l.viaturaPlaca=v.placa||'';}return S.savL(l);}
 function stCnh(m){if(!m.cnhValidade)return{label:'Sem info',cor:'info'};const d=diasAte(m.cnhValidade);if(d<0)return{label:'Vencida há '+Math.abs(d)+'d',cor:'danger'};if(d<=30)return{label:'Vence em '+d+'d',cor:'warning'};return{label:'Regular',cor:'success'};}
 function stDoc(d){if(!d.vencimento)return{label:'Sem info',cor:'info'};const dias=diasAte(d.vencimento);if(dias<0)return{label:'Vencido há '+Math.abs(dias)+'d',cor:'danger'};if(dias<=30)return{label:'Vence em '+dias+'d',cor:'warning'};return{label:'Regular',cor:'success'};}
@@ -1582,9 +1665,7 @@ function salvarMotorista(e){e.preventDefault();const id=document.getElementById(
 function delM(id){const m=S.mot(id);if(!m)return;confirmar('Excluir motorista "'+m.nome+'"?',()=>{S.delM(id);toast('Motorista excluído!');renderMot();});}
 function renderMot(){const tb=document.getElementById('mTable');if(!tb)return;const f=(document.getElementById('mFiltro')?.value||'').toLowerCase();const s=document.getElementById('mSt')?.value||'';const l=S.mots().filter(m=>{if(s&&m.status!==s)return false;if(f){const t=(m.nome+' '+m.matricula+' '+m.unidade).toLowerCase();if(!t.includes(f))return false;}return true;});if(!l.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="fas fa-id-card"></i>Nenhum motorista</div></td></tr>';return;}tb.innerHTML=l.map(m=>{const c=stCnh(m);return'<tr><td><strong>'+esc(m.nome)+'</strong></td><td>'+esc(m.matricula)+'</td><td>'+esc(m.cnhCategoria)+'</td><td>'+dt(m.cnhValidade)+' <span class="badge '+c.cor+'">'+c.label+'</span></td><td>'+esc(m.telefone)+'</td><td>'+esc(m.unidade)+'</td><td>'+statusBadge(m.status)+'</td><td><button class="sec sm" onclick="modalMotorista('+m.id+')">Editar</button> <button class="danger sm" onclick="delM('+m.id+')">Excluir</button></td></tr>';}).join('');}
 
-/* ============ CONFLITO — CORRIGIDO ============
-   Só ignora Cancelado. Solicitado, Aprovado, Em uso E Finalizado bloqueiam.
-   Assim, um agendamento finalizado NÃO libera o horário para outro. */
+/* ============ CONFLITO — só ignora Cancelado ============ */
 let agMes=new Date();
 function conflito(ag,ign){
   if(!ag.viaturaId||!ag.data||!ag.saida||!ag.retorno)return[];
